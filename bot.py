@@ -7,7 +7,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Messa
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 TOKEN = "8878161711:AAF9hFhqclivp09aL-QqhpZfoY8S6tH7RKY"
-WORLD_TIDES_API_KEY = "b41048e0-35f9-4ff4-8591-fd5ff25a3309" # ကိုယ့်ရဲ့ API Key ထည့်ရန်
+WORLD_TIDES_API_KEY = "b41048e0-35f9-4ff4-8591-fd5ff25a3309"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('⚓ မင်္ဂလာပါ အစ်ကိုရေ! ဆိပ်ကမ်းနာမည် (ဥပမာ - Lobito, Luanda, Walvis Bay) ကို ပို့ပေးပါ၊ ရာသီဥတုနှင့် တစ်ရက်စာ ဒီရေဇယားကို ရှာဖွေပေးပါမယ်။')
@@ -38,18 +38,16 @@ async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         wind_speed = current.get("wind_speed_10m", "N/A")
         wind_dir = current.get("wind_direction_10m", "N/A")
 
-        # 3. WorldTides API (တနာရီခြားစီ step=3600 ဖြင့် ယူရန်)
+        # 3. WorldTides API
         tide_url = f"https://www.worldtides.info/api/v3?heights&step=3600&days=1&lat={lat}&lon={lon}&key={WORLD_TIDES_API_KEY}"
         tide_res = requests.get(tide_url, timeout=10).json()
         
         tide_text = "\n🌊 **တရက်စာ နာရီအလိုက် ဒီရေဇယား (Tide Table):**\n```text\n"
         if "heights" in tide_res and tide_res["heights"]:
-            # မိနစ်ပိုင်းများ မပါစေရန် အတိအကျ စစ်ထုတ်ခြင်း
             for item in tide_res["heights"]:
-                time_str = item["date"] # ယူဆချက်: 2026-06-06T00:00:00+0000 ပုံစံ
+                time_str = item["date"]
                 if "T" in time_str:
                     time_part = time_str.split("T")[1][:5]
-                    # အတိအကျ နာရီအစ (ဥပမာ - 00:00, 01:00) သို့မဟုတ် မိနစ် 00 ဖြစ်မှသာ ယူမည်
                     if time_part.endswith(":00"):
                         height = float(item["height"])
                         h_str = f"+{height:.2f} m" if height >= 0 else f"{height:.2f} m"
