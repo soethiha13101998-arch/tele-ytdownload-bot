@@ -7,16 +7,16 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Messa
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 TOKEN = "8878161711:AAF9hFhqclivp09aL-QqhpZfoY8S6tH7RKY"
-WORLD_TIDES_API_KEY = "b41048e0-35f9-4ff4-8591-fd5ff25a3309" # ကိုယ့်ရဲ့ WorldTides API Key ထည့်ရန်
+WORLD_TIDES_API_KEY = "YOUR_WORLD_TIDES_API_KEY_HERE" # ကိုယ့်ရဲ့ API Key ထည့်ရန်
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('⚓ မင်္ဂလာပါ အစ်ကိုရေ! ဆိပ်ကမ်းနာမည် (ဥပမာ - Walvis Bay, Lagos Bar, Abidjan) ကို ပို့ပေးပါ၊ ရာသီဥတုနှင့် နာရီအလိုက် ဒီရေအတတ်အကျများကို ရှာဖွေပေးပါမယ်။')
+    await update.message.reply_text('⚓ မင်္ဂလာပါ အစ်ကိုရေ! ဆိပ်ကမ်းနာမည် (ဥပမာ - Lome, Walvis Bay) ကို ပို့ပေးပါ၊ ရာသီဥတုနှင့် တစ်ရက်စာ နာရီအလိုက် ဒီရေဇယားကို ရှာဖွေပေးပါမယ်။')
 
 async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     port_name = update.message.text.strip()
-    msg = await update.message.reply_text(f"🔍 {port_name} ဆိပ်ကမ်း၏ ရာသီဥတုနှင့် ဒီရေအချက်အလက်များကို ဆွဲထုတ်နေပါပြီ...")
+    msg = await update.message.reply_text(f"🔍 {port_name} ဆိပ်ကမ်း၏ ရာသီဥတုနှင့် တစ်ရက်စာ ဒီရေဇယားကို ဆွဲထုတ်နေပါပြီ...")
 
-    # 1. Geocoding: ဆိပ်ကမ်းနာမည်မှ Latitude / Longitude ရယူရန်
+    # 1. Geocoding
     geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={port_name}&count=1&language=en&format=json"
     try:
         geo_res = requests.get(geo_url, timeout=10).json()
@@ -30,7 +30,7 @@ async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         country = location.get("country", "")
         city = location.get("name", port_name)
 
-        # 2. Weather API: အပူချိန်နှင့် လေတိုက်နှုန်း
+        # 2. Weather API
         weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,wind_speed_10m,wind_direction_10m"
         weather_res = requests.get(weather_url, timeout=10).json()
         current = weather_res.get("current", {})
@@ -38,21 +38,23 @@ async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         wind_speed = current.get("wind_speed_10m", "N/A")
         wind_dir = current.get("wind_direction_10m", "N/A")
 
-        # 3. WorldTides API: နာရီအလိုက် ရေအတတ်အကျ အချိန်နှင့် အမြင့်
-        tide_url = f"https://www.worldtides.info/api/v3?heights&extremes&lat={lat}&lon={lon}&key={WORLD_TIDES_API_KEY}"
+        # 3. WorldTides API (တနာရီခြားစီဖြင့် တစ်ရက်စာ ယူရန် step=3600 လိုအပ်သည်)
+        tide_url = f"https://www.worldtides.info/api/v3?heights&step=3600&days=1&lat={lat}&lon={lon}&key={WORLD_TIDES_API_KEY}"
         tide_res = requests.get(tide_url, timeout=10).json()
         
-        tide_text = "\n🌊 **Hourly Tide Table (နာရီအလိုက် ရေအတတ်အကျ):**\n"
+        tide_text = "\n🌊 **တရက်စာ နာရီအလိုက် ဒီရေဇယား (Tide Table):**\n```text\n"
         if "heights" in tide_res and tide_res["heights"]:
-            for item in tide_res["heights"][:6]: # ပထမဆုံး ၆ ခု (နာရီအလိုက်)
-                # အချိန်ကို Formatted လုပ်ရန် (ISO format မှ HH:MM သို့)
+            for item in tide_res["heights"]:
+                # အချိန်ကို 24 နာရီစနစ် (HH:MM) ဖြင့်ထုတ်ရန်
                 dt = item["date"].split("T")[1][:5]
-                height = item["height"]
-                tide_text += f"• {dt} - {height} m\n"
+                height = float(item["height"])
+                # မီတာ တန်ဖိုးကို + သို့မဟုတ် - လက္ခဏာနှင့်အတူ အသေသပ်ဆုံးပြရန်
+                h_str = f"+{height:.2f} m" if height >= 0 else f"{height:.2f} m"
+                tide_text += f"{dt} ➔ {h_str}\n"
+            tide_text += "```"
         else:
-            tide_text += "• ဒီရေအချက်အလက် ရယူ၍ မရပါ။\n"
+            tide_text = "\n🌊 **တရက်စာ ဒီရေဇယား:** အချက်အလက် ရယူ၍ မရပါ။"
 
-        # ဆိပ်ကမ်းအခြေအနေ အပြည့်အစုံ တည်ဆောက်ခြင်း
         response_text = (
             f"📍 **Port:** {city} ({country})\n"
             f"🌍 **Coordinates:** Lat {lat}, Lon {lon}\n\n"
