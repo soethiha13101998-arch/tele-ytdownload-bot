@@ -1,8 +1,8 @@
 import os
 import logging
-import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+import yt_dlp
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -19,39 +19,40 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg = await update.message.reply_text("⏳ ခဏစောင့်ပါ၊ သီချင်းဖိုင်ကို ထုတ်ယူနေပါပြီ...")
 
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': 'song',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'quiet': True,
+        'no_warnings': True,
+        'extractor_args': {'youtube': {'player_client': ['android']}}
+    }
+
     try:
-        # Cobalt API ကိုသုံးပြီး YouTube Link မှ MP3 တိုက်ရိုက်ထုတ်ယူခြင်း (Bot Error ကင်းဝေးစေရန်)
-        response = requests.post("https://api.cobalt.tools/api/json", json={
-            "url": url,
-            "isAudioOnly": True,
-            "filenamePattern": "classic"
-        }, headers={
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        })
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+            
+        audio_path = "song.mp3"
+        if not os.path.exists(audio_path):
+            audio_path = "song.m4a"
+
+        await update.message.reply_audio(
+            audio=open(audio_path, 'rb'),
+            caption="ရော့....ရရင် ဒိုးတော့"
+        )
         
-        data = response.json()
-        audio_url = None
-        
-        if data.get("status") in ["redirect", "stream"]:
-            audio_url = data.get("url")
-        elif data.get("status") == "picker":
-            picker = data.get("picker")
-            if picker and len(picker) > 0:
-                audio_url = picker[0].get("url")
-                
-        if audio_url:
-            await update.message.reply_audio(
-                audio=audio_url,
-                caption="ရော့....ရရင် ဒိုးတော့"
-            )
-            await msg.delete()
-        else:
-            await msg.edit_text("❌ ဖိုင်ထုတ်ယူ၍ မရပါ။ Link ကို ပြန်စစ်ပေးပါ။")
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+            
+        await msg.delete()
 
     except Exception as e:
         logging.error(f"Error: {e}")
-        await msg.edit_text("❌ အမှားအယွင်း ဖြစ်သွားပါသည်။")
+        await msg.edit_text("❌ ဖိုင်ထုတ်ယူ၍ မရပါ။ Link ကို ပြန်စစ်ပေးပါ။")
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
