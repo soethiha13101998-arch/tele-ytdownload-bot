@@ -1,8 +1,8 @@
 import os
 import logging
+import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
-import yt_dlp
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -17,46 +17,44 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not (url.startswith("http://") or url.startswith("https://")):
         return
 
-    msg = await update.message.reply_text("⏳ ခဏစောင့်ပါ၊ သီချင်းဖိုင်ကို ဒေါင်းလုဒ်လုပ်နေပါပြီ...")
-
-    output_file = "song.mp3"
-    
-    # ဖိုင်ဟောင်းရှိနေရင် ဖျက်ရန်
-    if os.path.exists(output_file):
-        os.remove(output_file)
-
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-        'outtmpl': 'song',
-        'quiet': True
-    }
+    msg = await update.message.reply_text("⏳ ခဏစောင့်ပါ၊ သီချင်းဖိုင်ကို ထုတ်ယူနေပါပြီ...")
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-            
-        if os.path.exists(output_file):
-            with open(output_file, 'rb') as audio:
-                await update.message.reply_audio(
-                    audio=audio,
-                    caption="ရပါပြီ ခင်ဗျာ။"
-                )
+        # Cobalt API ကို Headers အမှန်နဲ့ တောင်းခံခြင်း
+        response = requests.post(
+            "https://co.wuk.sh/api/json",
+            json={
+                "url": url,
+                "isAudioOnly": True,
+                "downloadMode": "audio"
+            },
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            timeout=15
+        )
+        
+        data = response.json()
+        audio_url = data.get("url") or data.get("audio")
+        
+        if not audio_url and "picker" in data:
+            picker = data.get("picker")
+            if len(picker) > 0:
+                audio_url = picker[0].get("url")
+
+        if audio_url:
+            await update.message.reply_audio(
+                audio=audio_url,
+                caption="ရပါပြီ ခင်ဗျာ။"
+            )
             await msg.delete()
         else:
-            await msg.edit_text("❌ ဖိုင်ထုတ်ယူ၍ မရပါ။")
-            
+            await msg.edit_text("❌ ဤလင့်ခ်အတွက် အသံဖိုင် ထုတ်ယူ၍ မရပါ။")
+
     except Exception as e:
         logging.error(f"Error: {e}")
-        await msg.edit_text("❌ Error ဖြစ်သွားပါသည်။ Link ကို စစ်ဆေးပေးပါ။")
-        
-    finally:
-        if os.path.exists(output_file):
-            os.remove(output_file)
+        await msg.edit_text("❌ ဆာဗာချိတ်ဆက်မှု အမှားအယွင်း ရှိနေပါသည်။")
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
