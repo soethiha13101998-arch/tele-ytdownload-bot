@@ -1,6 +1,7 @@
 import os
 import logging
 import requests
+from datetime import datetime
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 
@@ -10,7 +11,7 @@ TOKEN = "8878161711:AAF9hFhqclivp09aL-QqhpZfoY8S6tH7RKY"
 WORLD_TIDES_API_KEY = "b41048e0-35f9-4ff4-8591-fd5ff25a3309"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('⚓ မင်္ဂလာပါ အစ်ကိုရေ! ဆိပ်ကမ်းနာမည် (ဥပမာ - Durban, Cape Town, Walvis Bay) ကို ပို့ပေးပါ၊ ရာသီဥတုနှင့် တစ်ရက်စာ ဒီရေဇယားကို ရှာဖွေပေးပါမယ်။')
+    await update.message.reply_text('⚓ မင်္ဂလာပါ အစ်ကိုရေ! ဆိပ်ကမ်းနာမည် (ဥပမာ - Lagos, Durban, Cape Town) ကို ပို့ပေးပါ၊ ရာသီဥတုနှင့် 00:00 မှ 24:00 ထိ တစ်ရက်စာ နာရီအလိုက် ဒီရေဇယားကို ရှာဖွေပေးပါမယ်။')
 
 async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     port_name = update.message.text.strip()
@@ -38,37 +39,50 @@ async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         wind_speed = current.get("wind_speed_10m", "N/A")
         wind_dir = current.get("wind_direction_10m", "N/A")
 
-        # 3. WorldTides API
+        # 3. WorldTides API (00:00 ကနေစပြီး တနာရီခြားစီ 24 နာရီစာ ယူရန်)
         tide_url = f"https://www.worldtides.info/api/v3?heights&step=3600&days=1&lat={lat}&lon={lon}&key={WORLD_TIDES_API_KEY}"
         tide_res = requests.get(tide_url, timeout=10).json()
         
-        tide_text = "\n🌊 **တရက်စာ နာရီအလိုက် ဒီရေဇယား (Tide Table):**\n```text\n"
+        # ယနေ့ရက်စွဲကို ပထမဆုံးရရှိသော ဒေတာမှ (သို့မဟုတ် လက်ရှိအချိန်မှ) ထုတ်ယူရန်
+        target_date = datetime.now().strftime("%Y-%m-%d")
         heights_data = tide_res.get("heights", [])
         
+        if heights_data and "date" in heights_data[0]:
+            target_date = heights_data[0]["date"].split("T")[0]
+
+        tide_text = f"\n🌊 **Tide Table ({target_date}):**\n```text\n"
+        
         if heights_data:
-            count = 0
+            added_hours = set()
             for item in heights_data:
-                if "date" in item and "height" in item:
-                    full_date = item["date"]
-                    # အချိန်ကို ဖြတ်ယူခြင်း (ဥပမာ - 2026-06-06T00:00:00 မှ 00:00 ကို ထုတ်ရန်)
-                    if "T" in full_date:
-                        time_part = full_date.split("T")[1][:5]
-                    else:
-                        time_part = full_date[-8:-3]
-                    
-                    try:
+                full_date = item["date"]
+                if "T" in full_date:
+                    date_part, time_part_full = full_date.split("T")
+                    # တောင်းဆိုထားသော ရက်စွဲနှင့် ကိုက်ညီမှသာ ထည့်မည်
+                    if date_part == target_date:
+                        time_hm = time_part_full[:5] # HH:MM
+                        # တနာရီခြားစီ (ဥပမာ - 00:00, 01:00 ... 24:00) မိနစ် 00 ဖြစ်မှယူမည်
+                        if time_hm.endswith(":00") and time_hm not in added_hours:
+                            height = float(item["height"])
+                            h_str = f"+{height:.2f} m" if height >= 0 else f"{height:.2f} m"
+                            tide_text += f"{time_hm} ➔ {h_str}\n"
+                            added_hours.add(time_hm)
+            
+            # အကယ်၍ 24:00 (သို့မဟုတ် 00:00 နောက်တစ်ရက်) စာရင်းပါလာလျှင် 24:00 အဖြစ်ပြရန်
+            for item in heights_data:
+                full_date = item["date"]
+                if "T" in full_date:
+                    date_part, time_part_full = full_date.split("T")
+                    time_hm = time_part_full[:5]
+                    if time_hm == "00:00" and date_part != target_date and "24:00" not in added_hours:
                         height = float(item["height"])
                         h_str = f"+{height:.2f} m" if height >= 0 else f"{height:.2f} m"
-                        tide_text += f"{time_part} ➔ {h_str}\n"
-                        count += 1
-                    except:
-                        continue
-            
-            if count == 0:
-                tide_text += "ဒီရေအချက်အလက် ဖတ်ရှု၍ မရပါ။\n"
+                        tide_text += f"24:00 ➔ {h_str}\n"
+                        added_hours.add("24:00")
+
             tide_text += "```"
         else:
-            tide_text = "\n🌊 **တရက်စာ ဒီရေဇယား:** ဤဆိပ်ကမ်းအတွက် ဒေတာ မရှိသေးပါ။"
+            tide_text = f"\n🌊 **Tide Table ({target_date}):** ဤဆိပ်ကမ်းအတွက် ဒေတာ မရှိသေးပါ။"
 
         response_text = (
             f"📍 **Port:** {city} ({country})\n"
