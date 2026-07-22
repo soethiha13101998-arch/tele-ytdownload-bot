@@ -10,7 +10,7 @@ TOKEN = "8878161711:AAF9hFhqclivp09aL-QqhpZfoY8S6tH7RKY"
 WORLD_TIDES_API_KEY = "b41048e0-35f9-4ff4-8591-fd5ff25a3309"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('⚓ မင်္ဂလာပါ အစ်ကိုရေ! ဆိပ်ကမ်းနာမည် (ဥပမာ - Lobito, Luanda, Walvis Bay) ကို ပို့ပေးပါ၊ ရာသီဥတုနှင့် တစ်ရက်စာ ဒီရေဇယားကို ရှာဖွေပေးပါမယ်။')
+    await update.message.reply_text('⚓ မင်္ဂလာပါ အစ်ကိုရေ! ဆိပ်ကမ်းနာမည် (ဥပမာ - Durban, Cape Town, Walvis Bay) ကို ပို့ပေးပါ၊ ရာသီဥတုနှင့် တစ်ရက်စာ ဒီရေဇယားကို ရှာဖွေပေးပါမယ်။')
 
 async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     port_name = update.message.text.strip()
@@ -43,15 +43,29 @@ async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tide_res = requests.get(tide_url, timeout=10).json()
         
         tide_text = "\n🌊 **တရက်စာ နာရီအလိုက် ဒီရေဇယား (Tide Table):**\n```text\n"
-        if "heights" in tide_res and tide_res["heights"]:
-            for item in tide_res["heights"]:
-                time_str = item["date"]
-                if "T" in time_str:
-                    time_part = time_str.split("T")[1][:5]
-                    if time_part.endswith(":00"):
+        heights_data = tide_res.get("heights", [])
+        
+        if heights_data:
+            count = 0
+            for item in heights_data:
+                if "date" in item and "height" in item:
+                    full_date = item["date"]
+                    # အချိန်ကို ဖြတ်ယူခြင်း (ဥပမာ - 2026-06-06T00:00:00 မှ 00:00 ကို ထုတ်ရန်)
+                    if "T" in full_date:
+                        time_part = full_date.split("T")[1][:5]
+                    else:
+                        time_part = full_date[-8:-3]
+                    
+                    try:
                         height = float(item["height"])
                         h_str = f"+{height:.2f} m" if height >= 0 else f"{height:.2f} m"
                         tide_text += f"{time_part} ➔ {h_str}\n"
+                        count += 1
+                    except:
+                        continue
+            
+            if count == 0:
+                tide_text += "ဒီရေအချက်အလက် ဖတ်ရှု၍ မရပါ။\n"
             tide_text += "```"
         else:
             tide_text = "\n🌊 **တရက်စာ ဒီရေဇယား:** ဤဆိပ်ကမ်းအတွက် ဒေတာ မရှိသေးပါ။"
