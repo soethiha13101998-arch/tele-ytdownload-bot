@@ -19,6 +19,9 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg = await update.message.reply_text("⏳ ခဏစောင့်ပါ၊ သီချင်းဖိုင်ကို ထုတ်ယူနေပါပြီ...")
 
+    audio_url = None
+
+    # Method 1: Cobalt API သုံးရန်
     try:
         response = requests.post("https://api.cobalt.tools/api/json", json={
             "url": url,
@@ -27,30 +30,40 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }, headers={
             "Accept": "application/json",
             "Content-Type": "application/json"
-        })
+        }, timeout=10)
         
         data = response.json()
-        audio_url = None
-        
         if data.get("status") in ["redirect", "stream"]:
             audio_url = data.get("url")
         elif data.get("status") == "picker":
             picker = data.get("picker")
             if picker and len(picker) > 0:
                 audio_url = picker[0].get("url")
-                
-        if audio_url:
+    except Exception as e:
+        logging.error(f"Cobalt Error: {e}")
+
+    # Method 2: Cobalt မရရင် DLTAPIs သို့မဟုတ် အခြားလင့်ခ်သို့ ပြောင်းရန်
+    if not audio_url:
+        try:
+            alt_res = requests.get(f"https://delink.api.red-stone.workers.dev/?url={url}", timeout=10)
+            alt_data = alt_res.json()
+            if alt_data.get("success"):
+                audio_url = alt_data.get("audio") or alt_data.get("url")
+        except Exception as e:
+            logging.error(f"Alt API Error: {e}")
+
+    if audio_url:
+        try:
             await update.message.reply_audio(
                 audio=audio_url,
                 caption="ရပါပြီ ခင်ဗျာ။"
             )
             await msg.delete()
-        else:
-            await msg.edit_text("❌ ဖိုင်ထုတ်ယူ၍ မရပါ။ Link ကို ပြန်စစ်ပေးပါ။")
+            return
+        except Exception as e:
+            logging.error(f"Telegram Send Error: {e}")
 
-    except Exception as e:
-        logging.error(f"Error: {e}")
-        await msg.edit_text("❌ အမှားအယွင်း ဖြစ်သွားပါသည်။")
+    await msg.edit_text("❌ ဖိုင်ထုတ်ယူ၍ မရပါ။ YouTube ဘက်မှ လော့ခ်ချထားခြင်း သို့မဟုတ် API ချို့ယွင်းနေပါသည်။")
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
