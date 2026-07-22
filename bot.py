@@ -28,7 +28,7 @@ async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         country = location.get("country", "")
         city = location.get("name", port_name)
 
-        # Weather API
+        # Weather API (Temperature & Wind)
         weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,wind_speed_10m,wind_direction_10m"
         weather_res = requests.get(weather_url, timeout=10).json()
         current = weather_res.get("current", {})
@@ -36,22 +36,32 @@ async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         wind_speed = current.get("wind_speed_10m", "N/A")
         wind_dir = current.get("wind_direction_10m", "N/A")
 
-        # Marine API (နာရီအလိုက် ဒီရေနှင့် လှိုင်းအမြင့်)
-        marine_url = f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lon}&hourly=wave_height,sea_water_temperature"
+        # Marine API (Swell & Wave data)
+        marine_url = f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lon}&hourly=swell_wave_height,wind_wave_height"
         marine_res = requests.get(marine_url, timeout=10).json()
         hourly = marine_res.get("hourly", {})
         times = hourly.get("time", [])
-        wave_heights = hourly.get("wave_height", [])
+        swell_heights = hourly.get("swell_wave_height", [])
+        wind_waves = hourly.get("wind_wave_height", [])
 
-        tide_info = "\n🌊 **Hourly Wave/Tide Trend (နာရီအလိုက် အခြေအနေ):**\n"
-        if times and wave_heights:
-            for i in range(min(6, len(times))):
+        tide_info = "\n🌊 **Hourly Wave & Swell Trend (နာရီအလိုက် လှိုင်းအခြေအနေ):**\n"
+        data_found = False
+        if times:
+            for i in range(min(5, len(times))):
                 t = times[i].split("T")[1]
-                wh = wave_heights[i]
-                wh_str = f"{wh} m" if wh is not None else "N/A"
-                tide_info += f"• {t} - Wave Height: {wh_str}\n"
-        else:
-            tide_info += "• ဒီရေအချက်အလက် ရယူ၍ မရပါ။\n"
+                # Swell ဒါမှမဟုတ် Wind wave တစ်ခုခုရှိရင် ယူမည်
+                sw = swell_heights[i] if swell_heights and i < len(swell_heights) else None
+                ww = wind_waves[i] if wind_waves and i < len(wind_waves) else None
+                
+                h_val = sw if sw is not None else (ww if ww is not None else "Normal")
+                h_str = f"{h_val} m" if isinstance(h_val, (int, float)) else h_val
+                
+                if h_val != "Normal":
+                    data_found = True
+                tide_info += f"• {t} - Wave Height: {h_str}\n"
+
+        if not data_found:
+            tide_info += "• (ဤဆိပ်ကမ်းအတွက် ပွင့်လင်းပင်ပြင် လှိုင်းအချက်အလက် အသေးစိတ် မရှိသေးပါ)\n"
 
         response_text = (
             f"📍 **Port:** {city} ({country})\n"
