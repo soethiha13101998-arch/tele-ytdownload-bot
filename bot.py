@@ -9,7 +9,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 TOKEN = "8878161711:AAF9hFhqclivp09aL-QqhpZfoY8S6tH7RKY"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('ဒေါင်းမဲ့ link ကိုပို့လိုက် ဝူးဝါး" အာလာမချောင်နဲ့ ပါးချခံရမယ်')
+    await update.message.reply_text('ဒေါင်းမဲ့ link ကိုပို့လိုက်ပါ အစ်ကိုရေ...')
 
 async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text.strip()
@@ -20,7 +20,6 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text(" ခဏစောင့်ပါ၊ သီချင်းဖိုင်ကို ထုတ်ယူနေပါပြီ...")
 
     try:
-        # Cobalt API ကို အသုံးပြု၍ YouTube Link မှ MP3 တိုက်ရိုက်ရယူခြင်း
         response = requests.post("https://api.cobalt.tools/api/json", json={
             "url": url,
             "isAudioOnly": True,
@@ -43,7 +42,7 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if audio_url:
             await update.message.reply_audio(
                 audio=audio_url,
-                caption="ရော့....ရရင် ဒိုးတော့"
+                caption="ရပါပြီ ခင်ဗျာ။"
             )
             await msg.delete()
         else:
