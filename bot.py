@@ -1,8 +1,8 @@
 import os
 import logging
-import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+import yt_dlp
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -17,49 +17,51 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not (url.startswith("http://") or url.startswith("https://")):
         return
 
-    msg = await update.message.reply_text("⏳ ခဏစောင့်ပါ၊ သီချင်းဖိုင်ကို ထုတ်ယူနေပါပြီ...")
+    msg = await update.message.reply_text("⏳ ခဏစောင့်ပါ၊ သီချင်းဖိုင်ကို ဒေါင်းလုဒ်လုပ်နေပါပြီ...")
 
-    audio_url = None
+    output_file = "song.mp3"
+    
+    # ဖိုင်ဟောင်းရှိနေရင် ဖျက်ရန်
+    if os.path.exists(output_file):
+        os.remove(output_file)
 
-    # API 1: Cobalt
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'outtmpl': 'song',
+        'quiet': True
+    }
+
     try:
-        res = requests.post("https://api.cobalt.tools/api/json", json={
-            "url": url,
-            "isAudioOnly": True,
-            "filenamePattern": "classic"
-        }, headers={"Accept": "application/json", "Content-Type": "application/json"}, timeout=8)
-        data = res.json()
-        if data.get("status") in ["redirect", "stream"]:
-            audio_url = data.get("url")
-        elif data.get("status") == "picker":
-            picker = data.get("picker")
-            if picker and len(picker) > 0:
-                audio_url = picker[0].get("url")
-    except Exception:
-        pass
-
-    # API 2: SaveFrom / Alternative public endpoint
-    if not audio_url:
-        try:
-            res = requests.get(f"https://delink.api.red-stone.workers.dev/?url={url}", timeout=8)
-            data = res.json()
-            if data.get("success"):
-                audio_url = data.get("audio") or data.get("url")
-        except Exception:
-            pass
-
-    if audio_url:
-        try:
-            await update.message.reply_audio(audio=audio_url, caption="ရပါပြီ ခင်ဗျာ။")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+            
+        if os.path.exists(output_file):
+            with open(output_file, 'rb') as audio:
+                await update.message.reply_audio(
+                    audio=audio,
+                    caption="ရပါပြီ ခင်ဗျာ။"
+                )
             await msg.delete()
-            return
-        except Exception:
-            pass
-
-    await msg.edit_text("❌ YouTube ဘက်မှ လော့ခ်ချထားသဖြင့် ဤလင့်ခ်ကို ထုတ်ယူ၍ မရပါ။")
+        else:
+            await msg.edit_text("❌ ဖိုင်ထုတ်ယူ၍ မရပါ။")
+            
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        await msg.edit_text("❌ Error ဖြစ်သွားပါသည်။ Link ကို စစ်ဆေးပေးပါ။")
+        
+    finally:
+        if os.path.exists(output_file):
+            os.remove(output_file)
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), download_audio))
+    
+    print("Bot စတင်အလုပ်လုပ်နေပါပြီ...")
     app.run_polling()
