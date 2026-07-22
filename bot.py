@@ -9,7 +9,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 TOKEN = "8878161711:AAF9hFhqclivp09aL-QqhpZfoY8S6tH7RKY"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('⚓ မင်္ဂလာပါ အစ်ကိုရေ! ဆိပ်ကမ်းနာမည် (ဥပမာ - Abidjan, Walvis Bay, Lagos Bar) ကို ပို့ပေးပါ၊ ရာသီဥတုနှင့် နာရီအလိုက် ဒီရေအတတ်အကျများကို ရှာဖွေပေးပါမယ်။')
+    await update.message.reply_text('⚓ မင်္ဂလာပါ အစ်ကိုရေ! ဆိပ်ကမ်းနာမည် (ဥပမာ - Abidjan, Walvis Bay) ကို ပို့ပေးပါ၊ ရာသီဥတုနှင့် နာရီအလိုက် ဒီရေအချက်အလက်များကို ရှာဖွေပေးပါမယ်။')
 
 async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     port_name = update.message.text.strip()
@@ -36,22 +36,22 @@ async def get_port_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         wind_speed = current.get("wind_speed_10m", "N/A")
         wind_dir = current.get("wind_direction_10m", "N/A")
 
-        # Marine / Tide API (နာရီအလိုက် လှိုင်းနှင့် ရေအမြင့်)
+        # Marine API (နာရီအလိုက် ဒီရေနှင့် လှိုင်းအမြင့်)
         marine_url = f"https://marine-api.open-meteo.com/v1/marine?latitude={lat}&longitude={lon}&hourly=wave_height,sea_water_temperature"
         marine_res = requests.get(marine_url, timeout=10).json()
         hourly = marine_res.get("hourly", {})
         times = hourly.get("time", [])
         wave_heights = hourly.get("wave_height", [])
 
-        # နောက်ဆုံးပေါ် လာမည့် ၅ နာရီစာ ဒီရေ/လှိုင်း အခြေအနေကို ထုတ်ရန်
-        tide_info = ""
+        tide_info = "\n🌊 **Hourly Wave/Tide Trend (နာရီအလိုက် အခြေအနေ):**\n"
         if times and wave_heights:
-            tide_info = "\n🌊 **Hourly Wave/Tide Trend (လာမည့် နာရီအနည်းငယ်):**\n"
-            for i in range(min(5, len(times))):
-                t = times[i].split("T")[1] # အချိန် (HH:MM)
+            for i in range(min(6, len(times))):
+                t = times[i].split("T")[1]
                 wh = wave_heights[i]
                 wh_str = f"{wh} m" if wh is not None else "N/A"
-                tide_info += f"• {t} - Wave/Height: {wh_str}\n"
+                tide_info += f"• {t} - Wave Height: {wh_str}\n"
+        else:
+            tide_info += "• ဒီရေအချက်အလက် ရယူ၍ မရပါ။\n"
 
         response_text = (
             f"📍 **Port:** {city} ({country})\n"
