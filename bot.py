@@ -29,7 +29,7 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }],
         'quiet': True,
         'no_warnings': True,
-        'extractor_args': {'youtube': {'player_client': ['android']}}
+        'extractor_args': {'youtube': {'player_client': ['android', 'web']}}
     }
 
     try:
