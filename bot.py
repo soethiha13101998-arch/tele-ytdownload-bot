@@ -17,7 +17,7 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not (url.startswith("http://") or url.startswith("https://")):
         return
 
-    msg = await update.message.reply_text("⏳ ခဏစောင့်ပါ၊ သီချင်းဖိုင်ကို ထုတ်ယူနေပါပြီ...")
+    msg = await update.message.reply_text(" ခဏစောင့်ပါ၊ သီချင်းဖိုင်ကို ထုတ်ယူနေပါပြီ...")
 
     try:
         # Cobalt API ကို အသုံးပြု၍ YouTube Link မှ MP3 တိုက်ရိုက်ရယူခြင်း
@@ -47,11 +47,11 @@ async def download_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await msg.delete()
         else:
-            await msg.edit_text("❌ ဖိုင်ထုတ်ယူ၍ မရပါ။ Link ကို ပြန်စစ်ပေးပါ။")
+            await msg.edit_text(" ဖိုင်ထုတ်ယူ၍ မရပါ။ Link ကို ပြန်စစ်ပေးပါ။")
 
     except Exception as e:
         logging.error(f"Error: {e}")
-        await msg.edit_text("❌ အမှားအယွင်း ဖြစ်သွားပါသည်။")
+        await msg.edit_text(" အမှားအယွင်း ဖြစ်သွားပါသည်။")
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
